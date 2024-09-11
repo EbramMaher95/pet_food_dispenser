@@ -19,8 +19,6 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 
-
-
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
@@ -299,9 +297,9 @@ int main(void) {
 
 			} else {
 
-				 Alcd_Clear(&lcd);
-				 Alcd_PutAt(&lcd, 0, 0, "RTC failure");
-				 error_code = 1;
+				Alcd_Clear(&lcd);
+				Alcd_PutAt(&lcd, 0, 0, "RTC failure");
+				error_code = 1;
 
 			}
 			snprintf(timeString, sizeof(timeString), "%02d", status);
@@ -3279,7 +3277,7 @@ int main(void) {
 				Alcd_PutAt_n(&lcd, 1, 0, timeString, strlen(timeString));
 
 				// Writing the ticks to the EEPROM
-				eeprom24c32_write(&memory, &dosing_tick, dosing_period);
+				eeprom24c32_write(&memory, dosing_tick, dosing_period);
 
 				// Set general_delay to 1000ms after the current tick
 				general_delay = current_tick + 1000;
@@ -3300,6 +3298,8 @@ int main(void) {
 			Alcd_PutAt(&lcd, 1, 0, "2: dosing hour");
 			snprintf(timeString, sizeof(timeString), "%02d", status);
 			Alcd_PutAt_n(&lcd, 0, 14, timeString, strlen(timeString));
+			Alcd_Display_Control(&lcd, 1, 0, 0);
+			Alcd_CursorAt(&lcd, 1, 0);
 
 			//check if any button is pressed
 			//check for any keypad input
@@ -3606,7 +3606,7 @@ int main(void) {
 				buffer = atoi(entered_password);
 
 				//write the value to eeprom
-				eeprom24c32_write(&memory, &buffer, doses_number);
+				eeprom24c32_write(&memory, buffer, doses_number);
 
 				input_index = 0;
 
@@ -4068,9 +4068,9 @@ int main(void) {
 					&& (current_tick >= general_delay)) {
 
 				//save the parameters
-				eeprom24c32_write(&memory, &dose_h, dosing_time_hours);
-				eeprom24c32_write(&memory, &dose_m, dosing_time_minutes);
-				eeprom24c32_write(&memory, &dose_s, dosing_time_seconds);
+				eeprom24c32_write(&memory, dose_h, dosing_time_hours);
+				eeprom24c32_write(&memory, dose_m, dosing_time_minutes);
+				eeprom24c32_write(&memory, dose_s, dosing_time_seconds);
 				status = 21;
 
 			}
@@ -4085,7 +4085,7 @@ int main(void) {
 
 			general_delay = HAL_GetTick() + 250;
 		}
-		
+
 		//extended edit parameters menu (state 49)
 		while ((status == 49) && (current_tick >= general_delay)) {
 
@@ -4097,6 +4097,8 @@ int main(void) {
 			Alcd_PutAt(&lcd, 1, 0, "4: seconds");
 			snprintf(timeString, sizeof(timeString), "%02d", status);
 			Alcd_PutAt_n(&lcd, 0, 14, timeString, strlen(timeString));
+			Alcd_Display_Control(&lcd, 1, 0, 0);
+			Alcd_CursorAt(&lcd, 1, 0);
 
 			//check if any button is pressed
 			//check for any keypad input
@@ -4114,7 +4116,6 @@ int main(void) {
 			else if (Keypad_Get_Key(&kp, kp_button_4)
 					&& (current_tick >= general_delay)) {
 
-
 				Alcd_Clear(&lcd);
 				status = 51;
 
@@ -4127,7 +4128,7 @@ int main(void) {
 				status = 23;
 
 			}
-			
+
 			//previous is selected
 			else if (Keypad_Get_Key(&kp, kp_button_previous)
 					&& (current_tick >= general_delay)) {
@@ -4138,7 +4139,7 @@ int main(void) {
 
 			general_delay = HAL_GetTick() + 250;
 		}
-		
+
 		//entering the minutes state (50)
 		while ((status == 50) && (current_tick >= general_delay)) {
 
@@ -4437,7 +4438,6 @@ int main(void) {
 
 			//check if minutes is within the range 0 to 60
 			if (buffer >= 0 && buffer < 61) {
-
 
 				status = 49;
 
@@ -4745,7 +4745,7 @@ int main(void) {
 				snprintf(timeString, sizeof(timeString), "%02d", buffer);
 				Alcd_PutAt_n(&lcd, 1, 0, timeString, strlen(timeString));
 
-				status = 34;
+				status = 53;
 
 			}
 
@@ -4770,7 +4770,6 @@ int main(void) {
 
 			//check if seconds is within the range 0 to 60
 			if (buffer >= 0 && buffer < 61) {
-
 
 				status = 49;
 

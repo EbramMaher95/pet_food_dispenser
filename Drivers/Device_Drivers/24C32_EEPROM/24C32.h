@@ -17,8 +17,6 @@ typedef struct {
 	//buffer variable for hours, minutes, seconds, no. of doses, Am or PM, 12 or 24h
 	uint32_t i2c_buffer[7];
 
-
-
 	//
 
 	//variable for the memory address
@@ -52,10 +50,10 @@ eeprom_state_t eeprom24c32_init(eeprom24c32_t *eeprom,
 		I2C_HandleTypeDef *i2c_bus);
 
 //write data to the eeprom function
-uint8_t eeprom24c32_write(eeprom24c32_t *eeprom, uint32_t *buffer_data,
-		uint16_t mem_ddress);
+uint8_t eeprom24c32_write(eeprom24c32_t *eeprom, uint8_t data,
+		uint16_t mem_address);
 //read data from the eeprom
-uint16_t eeprom24c32_read(eeprom24c32_t *eeprom, uint16_t *data,
-		uint16_t mem_ddress);
+uint8_t eeprom24c32_read(eeprom24c32_t *eeprom, uint8_t *data,
+		uint16_t mem_address);
 
 #endif /* DEVICE_DRIVERS_24C32_EEPROM_24C32_H_ */

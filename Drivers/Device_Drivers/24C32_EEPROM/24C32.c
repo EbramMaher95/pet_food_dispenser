@@ -79,37 +79,22 @@ eeprom_state_t eeprom24c32_init(eeprom24c32_t *eeprom,
  */
 
 //write to the eeprom function
-uint8_t eeprom24c32_write(eeprom24c32_t *eeprom, uint32_t *buffer_data,
-		uint16_t mem_ddress) {
-	uint8_t status;
-
-	//for testing
-	//eeprom->i2c_buffer[0] = 8;
-
-	status = HAL_I2C_Mem_Write(eeprom->i2c_bus, (eeprom_SLA << 1), mem_ddress,
-			2, (uint8_t*)buffer_data, 1, 100);
-
-	//delay according to the datasheet
-	HAL_Delay(20);
-
-	return status;
-
+uint8_t eeprom24c32_write(eeprom24c32_t *eeprom, uint8_t data,
+		uint16_t mem_address) {
+	HAL_StatusTypeDef status;
+	// Write one byte to EEPROM
+	status = HAL_I2C_Mem_Write(eeprom->i2c_bus, (eeprom_SLA << 1), mem_address,
+	I2C_MEMADD_SIZE_16BIT, &data, 1, EEPROM_I2C_TIMEOUT);
+	HAL_Delay(5);  // EEPROM write delay
+	return (status == HAL_OK) ? 1 : 0;
 }
 
 //read data from the eeprom
-uint16_t eeprom24c32_read(eeprom24c32_t *eeprom, uint16_t *data,
-		uint16_t mem_ddress) {
-
-	uint8_t status;
-	uint8_t read_data;
-
-	status = HAL_I2C_Mem_Read(eeprom->i2c_bus, (eeprom_SLA << 1), mem_ddress, 2,
-			&read_data, 1, 100);
-
-	// Store the read byte into the data variable
-	*data = read_data;
-
-	return status;
-
+uint8_t eeprom24c32_read(eeprom24c32_t *eeprom, uint8_t *data,
+		uint16_t mem_address) {
+	HAL_StatusTypeDef status;
+	// Read one byte from EEPROM
+	status = HAL_I2C_Mem_Read(eeprom->i2c_bus, (eeprom_SLA << 1), mem_address,
+	I2C_MEMADD_SIZE_16BIT, data, 1, EEPROM_I2C_TIMEOUT);
+	return (status == HAL_OK) ? 1 : 0;
 }
-

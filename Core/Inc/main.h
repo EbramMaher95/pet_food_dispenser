@@ -59,17 +59,17 @@ extern "C" {
 
 
 
-#define dosing_time_hours 0x0000
-#define dosing_time_minutes 0x0005
-#define dosing_time_seconds 0x0010
-#define doses_number 0x0015
-#define dosing_12_24	0x0020
+#define dosing_time_hours &memory.i2c_buffer[0]
+#define dosing_time_minutes &memory.i2c_buffer[1]
+#define dosing_time_seconds &memory.i2c_buffer[2]
+#define doses_number &memory.i2c_buffer[3]
+#define dosing_12_24	&memory.i2c_buffer[4]
 #define dosing_12 1
 #define dosing_24 0
-#define dosing_AM_PM	0x0025
+#define dosing_AM_PM	&memory.i2c_buffer[5]
 #define dosing_PM	0
 #define dosing_AM	1
-#define dosing_period	0x0030
+#define dosing_period	&memory.i2c_buffer[7]
 
 /* USER CODE END ET */
 
