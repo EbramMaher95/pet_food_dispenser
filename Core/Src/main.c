@@ -4107,6 +4107,7 @@ int main(void) {
 			//in case 3 is selected -> edit minutes
 			if (Keypad_Get_Key(&kp, kp_button_3)
 					&& (current_tick >= general_delay)) {
+				Alcd_Clear(&lcd);
 
 				status = 50;
 
@@ -4773,8 +4774,8 @@ int main(void) {
 
 				status = 49;
 
-				//set the minutes to the value
-				dose_m = buffer;
+				//set the seconds to the value
+				dose_s = buffer;
 
 				input_index = 0;
 				//turn off the blinking
