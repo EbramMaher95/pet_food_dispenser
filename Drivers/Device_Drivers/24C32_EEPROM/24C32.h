@@ -15,7 +15,7 @@
 typedef struct {
 
 	//buffer variable for hours, minutes, seconds, no. of doses, Am or PM, 12 or 24h
-	uint32_t i2c_buffer[7];
+	uint32_t i2c_buffer[10];
 
 	//
 

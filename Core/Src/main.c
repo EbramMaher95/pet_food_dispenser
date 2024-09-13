@@ -135,7 +135,7 @@ int main(void) {
 	TIM1->CCR1 = 999;
 
 	//a flag if button is pressed
-	uint8_t password_comp_flag, error_code, delay_flag;
+	uint8_t password_comp_flag, error_code, delay_flag, dosing_done_flag;
 	int8_t status;
 	password_comp_flag = 0;
 	status = 0;
@@ -146,9 +146,11 @@ int main(void) {
 	//finite state machine section
 	uint32_t current_tick;
 
-	uint32_t dosing_tick = 0;
+	uint32_t dosing_tick;
+	uint8_t dosing_tick_sec;
 
 	uint32_t general_delay;
+	uint32_t start_tick;
 
 	// a string to save the RTC time
 	char timeString[50];
@@ -160,7 +162,40 @@ int main(void) {
 	uint16_t buffer;
 	uint8_t input_index = 0;
 
+	// Variable to store the last date
+	uint8_t last_date = CLK.date;
+
+	// Set the number of times the loop
+	uint8_t loop_count = 0;
+
+	//getting the dosing parameters from the eeprom
+	//the dosing number
+	eeprom24c32_read(&memory, &dose_num, doses_number);
+
+	//the dosing hour
+	eeprom24c32_read(&memory, &dose_h, dosing_time_hours);
+
+	//the dosing minue
+	eeprom24c32_read(&memory, &dose_m, dosing_time_minutes);
+
+	//the dosing second
+	eeprom24c32_read(&memory, &dose_s, dosing_time_seconds);
+
+	//the dosing status
+	//eeprom24c32_read(&memory, &dosing_done_flag, dosing_status);
+	dosing_done_flag = 0;
+
+	//the dosing ticks
+	eeprom24c32_read(&memory, &dosing_tick_sec, dosing_period);
+
 	general_delay = HAL_GetTick() + 250;
+
+	GPIO_InitTypeDef c = { .Mode = GPIO_MODE_OUTPUT_PP, .Pin = GPIO_PIN_13,
+			.Speed = GPIO_SPEED_LOW };
+
+	HAL_GPIO_Init(GPIOC, &c);
+
+	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, SET);
 
 	/**
 	 * testing section
@@ -239,8 +274,73 @@ int main(void) {
 		while ((status == 0) && (error_code == 0)
 				&& (current_tick >= general_delay)) {
 
+			//moving the motor to the 0 position
+			TIM1->CCR1 = 999;
+
 			//get the current tick number
 			current_tick = HAL_GetTick();
+
+			//check if any button is pressed
+			//check for any keypad input
+			Keypad_Refresh(&kp);
+
+			//in case menu is pressed -> move to state10
+			if (Keypad_Get_Key(&kp, kp_button_save_menu)
+					&& (current_tick >= general_delay)) {
+				status = 10;
+
+			}
+
+			//in case force feeding is pressed -> move to state 54
+			if (Keypad_Get_Key(&kp, kp_button_force_feed)
+					&& (current_tick >= general_delay)) {
+				status = 54;
+
+			}
+
+			//testing
+			if (Keypad_Get_Key(&kp, kp_button_0)
+					&& (current_tick >= general_delay)) {
+
+				//moving the motor to the 0 position
+				TIM1->CCR1 = 1999;
+
+				Alcd_Clear(&lcd);
+
+				Alcd_PutAt(&lcd, 0, 0, "test");
+
+				start_tick = HAL_GetTick();
+
+				status = 55;
+
+			}
+
+			//check if day has elapsed to set the dosing flag down
+			if (CLK.date != last_date) {
+
+				//reset the dosing flag
+				//dosing_done_flag = 0;
+			}
+
+			//check if the dosing flag is down and the dosing time has reached
+			if ((CLK.hour >= dose_h) && (dosing_done_flag == 0)) {
+
+				//check if the minutes has reached
+				if (CLK.min >= dose_m) {
+
+					//check if the seconds has reached
+					if (CLK.sec >= dose_s) {
+
+						//turn on the led -> for testing purposes
+						HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, RESET);
+
+						//go to scheduled feeding state
+						status = 55;
+
+					}
+				}
+
+			}
 
 			//displaying the time and date
 			//the lcd will display the time
@@ -288,7 +388,9 @@ int main(void) {
 					Alcd_Display_Control(&lcd, 1, 0, 0);
 					Alcd_PutAt_n(&lcd, 1, 0, timeString, strlen(timeString));
 
-					Alcd_PutAt(&lcd, 0, 0, "Time");
+					snprintf(timeString, sizeof(timeString), "%02d-%02d-%04d",
+							CLK.date, CLK.month, CLK.year);
+					Alcd_PutAt_n(&lcd, 0, 0, timeString, strlen(timeString));
 
 					snprintf(timeString, sizeof(timeString), "%02d", status);
 					Alcd_PutAt_n(&lcd, 0, 14, timeString, strlen(timeString));
@@ -297,24 +399,15 @@ int main(void) {
 
 			} else {
 
-				Alcd_Clear(&lcd);
-				Alcd_PutAt(&lcd, 0, 0, "RTC failure");
-				error_code = 1;
+				/*
+				 Alcd_Clear(&lcd);
+				 Alcd_PutAt(&lcd, 0, 0, "RTC failure");
+				 error_code = 1;
+				 */
 
 			}
 			snprintf(timeString, sizeof(timeString), "%02d", status);
 			Alcd_PutAt_n(&lcd, 0, 14, timeString, strlen(timeString));
-
-			//check if any button is pressed
-			//check for any keypad input
-			Keypad_Refresh(&kp);
-
-			//in case menu is pressed -> move to state10
-			if (Keypad_Get_Key(&kp, kp_button_save_menu)
-					&& (current_tick >= general_delay)) {
-				status = 10;
-
-			}
 
 			general_delay = HAL_GetTick() + 250;
 
@@ -500,6 +593,9 @@ int main(void) {
 			Alcd_Clear(&lcd);
 			Alcd_PutAt(&lcd, 0, 0, "Dose @");
 
+			snprintf(timeString, sizeof(timeString), "%02d", status);
+			Alcd_PutAt_n(&lcd, 0, 14, timeString, strlen(timeString));
+
 			//reading dosing hours
 			eeprom24c32_read(&memory, &dose_h, dosing_time_hours);
 
@@ -512,6 +608,20 @@ int main(void) {
 			snprintf(timeString, sizeof(timeString), "%02d:%02d:%02d", dose_h,
 					dose_m, dose_s);
 			Alcd_PutAt_n(&lcd, 1, 0, timeString, strlen(timeString));
+
+			//check if format is 12h
+			if (CLK.format == 1) {
+
+				//in case AM
+				if (CLK.AM_PM == 0) {
+
+					Alcd_PutAt(&lcd, 1, 9, "AM");
+				}
+				//in case of PM
+				else {
+					Alcd_PutAt(&lcd, 1, 9, "PM");
+				}
+			}
 
 			//check if back or next is selected
 			Keypad_Refresh(&kp);
@@ -545,7 +655,7 @@ int main(void) {
 			Alcd_Clear(&lcd);
 			Alcd_PutAt(&lcd, 0, 0, "doses no.");
 
-			//reading dosing hours
+			//reading dosing number
 			eeprom24c32_read(&memory, &dose_num, doses_number);
 
 			snprintf(timeString, sizeof(timeString), "%02d", dose_num);
@@ -594,6 +704,7 @@ int main(void) {
 					&& (current_tick >= general_delay)) {
 
 				input_index = 0;  // Reset input index
+				Alcd_Display_Control(&lcd, 1, 0, 0);
 
 				//back to previous menu
 				status = 11;
@@ -902,6 +1013,9 @@ int main(void) {
 			//2 is selected -> calibrate dosing time (status 24)
 			else if (Keypad_Get_Key(&kp, kp_button_2)
 					&& (current_tick >= general_delay)) {
+
+				dosing_tick = 0;
+				start_tick = HAL_GetTick();
 
 				status = 24;
 
@@ -2454,7 +2568,7 @@ int main(void) {
 			general_delay = HAL_GetTick() + 250;
 		}
 
-//date validation phase
+		//date validation phase
 		while ((status == 36) && (current_tick >= general_delay)) {
 
 			//get the current tick number
@@ -2787,7 +2901,7 @@ int main(void) {
 			general_delay = HAL_GetTick() + 250;
 		}
 
-//month validation phase
+		//month validation phase
 		while ((status == 38) && (current_tick >= general_delay)) {
 
 			//get the current tick number
@@ -3120,7 +3234,7 @@ int main(void) {
 			general_delay = HAL_GetTick() + 250;
 		}
 
-//year validation phase
+		//year validation phase
 		while ((status == 40) && (current_tick >= general_delay)) {
 
 			//get the current tick number
@@ -3170,7 +3284,7 @@ int main(void) {
 
 		}
 
-//date confirmation menu (state 41)
+		//date confirmation menu (state 41)
 		while ((status == 41) && (current_tick >= general_delay)) {
 
 			//get the current tick number
@@ -3208,7 +3322,7 @@ int main(void) {
 			general_delay = HAL_GetTick() + 250;
 		}
 
-//status 24 -> calibrate dosing
+		//status 24 -> calibrate dosing
 		while ((status == 24) && (current_tick >= general_delay)) {
 
 			//get the current tick number
@@ -3223,6 +3337,8 @@ int main(void) {
 			snprintf(timeString, sizeof(timeString), "%02d", status);
 			Alcd_PutAt_n(&lcd, 0, 14, timeString, strlen(timeString));
 
+			//start_tick = HAL_GetTick();
+
 			//check if any button is pressed
 			//check for any keypad input
 			Keypad_Refresh(&kp);
@@ -3231,18 +3347,10 @@ int main(void) {
 			if (Keypad_Get_Key(&kp, kp_button_force_feed)
 					&& (current_tick >= general_delay)) {
 				Alcd_Clear(&lcd);
-				Alcd_PutAt(&lcd, 0, 0, "calibrating");
-
-				dosing_tick = dosing_tick + HAL_GetTick();
 
 				//moving the motor to the 180 position
 				TIM1->CCR1 = 1999;
-
-			}
-
-			//yes is selected
-			else if (Keypad_Get_Key(&kp, kp_button_yes)
-					&& (current_tick >= general_delay)) {
+				start_tick = HAL_GetTick();
 
 				status = 42;
 
@@ -3256,35 +3364,45 @@ int main(void) {
 
 			}
 
-			general_delay = HAL_GetTick() + 250;
+			general_delay = HAL_GetTick() + 25;
 		}
 
-		//status 42 -> calibrate saving
+		//status 42 -> measuring for calibrating
 		while ((status == 42) && (current_tick >= general_delay)) {
 
 			// Update current_tick to the current time
 			current_tick = HAL_GetTick();
-			Alcd_Clear(&lcd);
-			Alcd_PutAt(&lcd, 0, 0, "saved");
 
-			// Check if the current tick has passed the general delay time
-			if (current_tick >= general_delay) {
+			snprintf(timeString, sizeof(timeString), "%02d", status);
+			Alcd_PutAt_n(&lcd, 0, 14, timeString, strlen(timeString));
+
+			//check if any button is pressed
+			//check for any keypad input
+			Keypad_Refresh(&kp);
+
+			//in case feeding is selected -> start moving the motor
+			if (Keypad_Get_Key(&kp, kp_button_force_feed)
+					&& (current_tick >= general_delay)) {
 				Alcd_Clear(&lcd);
-				Alcd_PutAt(&lcd, 0, 0, "saved");
 
-				snprintf(timeString, sizeof(timeString), "ticks= %09d",
-						dosing_tick);
-				Alcd_PutAt_n(&lcd, 1, 0, timeString, strlen(timeString));
+				status = 42;
 
-				// Writing the ticks to the EEPROM
-				eeprom24c32_write(&memory, dosing_tick, dosing_period);
-
-				// Set general_delay to 1000ms after the current tick
-				general_delay = current_tick + 1000;
-
-				// Set the status
-				status = 21;
 			}
+
+			//when force feed is released
+			else {
+				//moving the motor to the 0 position
+				TIM1->CCR1 = 999;
+				dosing_tick = dosing_tick - start_tick;
+				dosing_tick_sec = dosing_tick / 1000;
+				status = 56;
+
+			}
+			Alcd_Clear(&lcd);
+			Alcd_PutAt(&lcd, 0, 0, "calibrating");
+
+			dosing_tick = HAL_GetTick();
+
 		}
 
 		//edit parameters state 23
@@ -4414,7 +4532,7 @@ int main(void) {
 				snprintf(timeString, sizeof(timeString), "%02d", buffer);
 				Alcd_PutAt_n(&lcd, 1, 0, timeString, strlen(timeString));
 
-//go to validation phase
+				//go to validation phase
 				status = 52;
 
 			}
@@ -4473,7 +4591,7 @@ int main(void) {
 
 		}
 
-//entering the seconds state (51)
+		//entering the seconds state (51)
 		while ((status == 51) && (current_tick >= general_delay)) {
 
 			//get the current tick number
@@ -4805,6 +4923,131 @@ int main(void) {
 
 		}
 
+		//status 54 -> force feeding
+		while ((status == 54) && (current_tick >= general_delay)) {
+
+			//get the current tick number
+			current_tick = HAL_GetTick();
+
+			//moving the motor to the 180 position (feeding position)
+			TIM1->CCR1 = 1999;
+
+			Alcd_Clear(&lcd);
+			Alcd_PutAt(&lcd, 0, 0, "hold button");
+			Alcd_PutAt(&lcd, 1, 0, "for feeding");
+			snprintf(timeString, sizeof(timeString), "%02d", status);
+			Alcd_PutAt_n(&lcd, 0, 14, timeString, strlen(timeString));
+
+			//check if any button is pressed
+			//check for any keypad input
+			Keypad_Refresh(&kp);
+
+			//in case feeding is selected -> keep the state
+			if (Keypad_Get_Key(&kp, kp_button_force_feed)) {
+				status = 54;
+			}
+
+			//when the force feed is released
+			else {
+
+				//return to the idle state
+				status = 0;
+
+			}
+			general_delay = HAL_GetTick() + 250;
+		}
+
+		//feeding phase
+		while ((status == 55) && (current_tick >= general_delay)) {
+			//get the current tick number
+			current_tick = HAL_GetTick();
+
+			//moving the motor to the 0 position
+			TIM1->CCR1 = 999;
+
+			Alcd_Clear(&lcd);
+			Alcd_PutAt(&lcd, 0, 0, "Feeding");
+
+			snprintf(timeString, sizeof(timeString), "%02d", status);
+			Alcd_PutAt_n(&lcd, 0, 14, timeString, strlen(timeString));
+
+			dosing_tick = dosing_tick_sec * 1000;
+
+			// Start the outer loop for n iterations
+			while (loop_count < dose_num) {
+
+				snprintf(timeString, sizeof(timeString), "dose cycle: %02d",
+						(loop_count + 1));
+				Alcd_PutAt_n(&lcd, 1, 0, timeString, strlen(timeString));
+
+				// Record the start tick for this iteration
+				uint32_t start_tick = HAL_GetTick();
+
+				// Perform the inner loop for the dosing delay
+				while ((HAL_GetTick()) < (start_tick + dosing_tick)) {
+					// Moving the motor to position 999
+					TIM1->CCR1 = 1999;
+
+					// Optionally, you can perform other tasks here if necessary
+				}
+
+				TIM1->CCR1 = 999;
+				// After completing the inner loop, add a delay of 1000 ms
+				uint32_t delay_start_tick = HAL_GetTick(); // Record the start time for delay
+				while ((HAL_GetTick()) < (delay_start_tick + 3000)) {
+					// Non-blocking wait for 1000 ms using HAL_GetTick()
+					// You can perform other non-blocking tasks here if needed
+				}
+
+				// Increment the loop count
+				loop_count++;
+			}
+
+			// Once the outer loop completes, reset the status
+			status = 0;
+			loop_count = 0;
+			dosing_done_flag = 1;
+			general_delay = HAL_GetTick() + 250;
+		}
+
+		//saving calibrations
+		while ((status == 56) && (current_tick >= general_delay)) {
+
+			//get the current tick number
+			current_tick = HAL_GetTick();
+			//moving the motor to the 0 position
+			TIM1->CCR1 = 999;
+
+			Alcd_Clear(&lcd);
+			Alcd_PutAt(&lcd, 0, 0, "save?");
+
+			snprintf(timeString, sizeof(timeString), "%02d", status);
+			Alcd_PutAt_n(&lcd, 0, 14, timeString, strlen(timeString));
+
+			snprintf(timeString, sizeof(timeString), "ticks: %2d s",
+					dosing_tick_sec);
+			Alcd_PutAt_n(&lcd, 1, 0, timeString, strlen(timeString));
+
+			//check if any button is pressed
+			//check for any keypad input
+			Keypad_Refresh(&kp);
+
+			//yes -> save ticks
+			if (Keypad_Get_Key(&kp, kp_button_yes)) {
+
+				//save the parameters to the eeprom
+				eeprom24c32_write(&memory, dosing_tick_sec, dosing_period);
+				status = 21;
+			}
+
+			// no -> return to previous state
+			else if (Keypad_Get_Key(&kp, kp_button_no_back)) {
+
+				status = 24;
+			}
+
+			general_delay = HAL_GetTick() + 250;
+		}
 //
 //
 	}			//end of while 1

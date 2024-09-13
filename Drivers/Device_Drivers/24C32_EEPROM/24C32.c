@@ -16,28 +16,6 @@
 
 #define EEPROM_I2C_TIMEOUT 100
 
-static uint8_t I2C__write(uint8_t slave, uint8_t *data, uint8_t len,
-		eeprom24c32_t *eeprom) {
-
-	//master send data to the slave (RTC)
-	HAL_StatusTypeDef OK = HAL_I2C_Master_Transmit(eeprom->i2c_bus,
-			(eeprom_SLA << 1), data, len, 100);
-
-	//check for the acknowledgment flag -> if 1 returned -> not acknowledged
-	return (OK == HAL_OK) ? 1 : 0;
-}
-
-static uint8_t I2C__read(uint8_t slave, uint8_t *data, uint8_t len,
-		eeprom24c32_t *eeprom) {
-
-	//master receive data from the slave (RTC)
-	HAL_StatusTypeDef OK = HAL_I2C_Master_Receive(eeprom->i2c_bus,
-			(eeprom_SLA << 1), data, len, 100);
-
-	//check for the acknowledgment flag -> if 1 returned -> not acknowledged
-	return (OK == HAL_OK) ? 1 : 0;
-}
-
 //initializing the eeprom
 eeprom_state_t eeprom24c32_init(eeprom24c32_t *eeprom,
 		I2C_HandleTypeDef *i2c_bus) {

@@ -69,7 +69,8 @@ extern "C" {
 #define dosing_AM_PM	&memory.i2c_buffer[5]
 #define dosing_PM	0
 #define dosing_AM	1
-#define dosing_period	&memory.i2c_buffer[7]
+#define dosing_period	&memory.i2c_buffer[6]
+#define dosing_status	&memory.i2c_buffer[8]
 
 /* USER CODE END ET */
 
